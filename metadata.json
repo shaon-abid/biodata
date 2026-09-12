@@ -1,0 +1,6 @@
+{
+  "name": "Marriage Biodata Maker",
+  "description": "Create professional marriage biodata profiles with customizable traditional and modern templates, comprehensive privacy controls, and instant PDF/image export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
