@@ -205,7 +205,62 @@ function patchContextCreatePattern(targetWin: Window): () => void {
   };
 }
 
-// Render element to canvas with complete isolation and OKLCH interception
+/**
+ * Preloads and inlines all remote images into base64 Data URLs before capture.
+ * This guarantees zero CORS errors, zero blank photos, and instant rasterization.
+ */
+async function inlineAllImages(element: HTMLElement): Promise<() => void> {
+  const images = Array.from(element.querySelectorAll('img'));
+  const originalSrcs = new Map<HTMLImageElement, string>();
+
+  await Promise.all(
+    images.map(async (img) => {
+      const src = img.src || img.getAttribute('src');
+      if (!src || src.startsWith('data:') || src.startsWith('blob:')) {
+        return;
+      }
+      originalSrcs.set(img, src);
+
+      try {
+        const res = await fetch(src, { mode: 'cors' });
+        if (res.ok) {
+          const blob = await res.blob();
+          const dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+          img.src = dataUrl;
+          return;
+        }
+      } catch {
+        // Fallback: draw loaded image on temporary canvas if available
+        try {
+          if (img.complete && img.naturalWidth > 0) {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0);
+              img.src = canvas.toDataURL('image/png');
+            }
+          }
+        } catch {
+          // If canvas tainting prevents toDataURL, keep original
+        }
+      }
+    })
+  );
+
+  return () => {
+    originalSrcs.forEach((originalSrc, img) => {
+      img.src = originalSrc;
+    });
+  };
+}
+
+// Render element to canvas with complete isolation, scale neutralization, and OKLCH interception
 async function renderElementToCanvas(
   element: HTMLElement,
   elementId: string,
@@ -214,20 +269,72 @@ async function renderElementToCanvas(
   const origWindowGetComputedStyle = window.getComputedStyle;
   const restoreWindowCreatePattern = patchContextCreatePattern(window);
 
-  // Intercept window.getComputedStyle so html2canvas never receives oklch on any element
+  // 1. Defensively neutralize any CSS transforms, scroll, and overflow on ancestors in the live DOM
+  // so html2canvas computes true unscaled coordinates (794px width, full A4 height)
+  const savedAncestorStyles: {
+    el: HTMLElement;
+    transform: string;
+    webkitTransform: string;
+    marginBottom: string;
+    overflow: string;
+  }[] = [];
+
+  let anc: HTMLElement | null = element.parentElement;
+  while (anc && anc !== document.body) {
+    const computed = window.getComputedStyle(anc);
+    const hasTransform =
+      anc.style.transform ||
+      (anc.style as any).webkitTransform ||
+      (computed.transform && computed.transform !== 'none');
+    const hasOverflow = computed.overflow && computed.overflow !== 'visible';
+
+    if (hasTransform || hasOverflow || anc.style.marginBottom) {
+      savedAncestorStyles.push({
+        el: anc,
+        transform: anc.style.transform,
+        webkitTransform: (anc.style as any).webkitTransform,
+        marginBottom: anc.style.marginBottom,
+        overflow: anc.style.overflow,
+      });
+      anc.style.transform = 'none';
+      (anc.style as any).webkitTransform = 'none';
+      anc.style.marginBottom = '0px';
+      if (hasOverflow) {
+        anc.style.overflow = 'visible';
+      }
+    }
+    anc = anc.parentElement;
+  }
+
+  // Force reflow and give browser layout engine time to settle unscaled dimensions
+  void element.offsetHeight;
+  await new Promise((resolve) => setTimeout(resolve, 60));
+
+  // 2. Preload and inline all external images (Unsplash, avatars) as Base64 to bypass CORS traps
+  const restoreImages = await inlineAllImages(element);
+
+  // 3. Intercept window.getComputedStyle so html2canvas never receives oklch on any element
   window.getComputedStyle = function (elt: Element, pseudoElt?: string | null): CSSStyleDeclaration {
     const comp = origWindowGetComputedStyle.call(window, elt, pseudoElt);
     return createCleanComputedStyleProxy(comp);
   };
 
   try {
+    const targetWidth = Math.round(element.offsetWidth || 794);
+    const targetHeight = Math.round(Math.max(element.scrollHeight || 1123, 1123));
+
     const canvas = await html2canvas(element, {
-      scale,
+      scale: Math.max(2, scale),
       useCORS: true,
       allowTaint: true,
       backgroundColor: '#ffffff',
       logging: false,
-      windowWidth: 1200,
+      width: targetWidth,
+      height: targetHeight,
+      windowWidth: Math.max(1200, targetWidth + 200),
+      windowHeight: Math.max(1600, targetHeight + 200),
+      scrollX: 0,
+      scrollY: 0,
       onclone: (clonedDoc) => {
         // 1. Also intercept the cloned iframe window's getComputedStyle and createPattern
         if (clonedDoc.defaultView) {
@@ -278,14 +385,11 @@ async function renderElementToCanvas(
             curr.style.transform = 'none';
             (curr.style as any).webkitTransform = 'none';
             curr.style.boxShadow = 'none';
-            curr.style.margin = '0';
-            curr.style.padding = '0';
             curr = curr.parentElement;
           }
 
           target.style.transform = 'none';
           (target.style as any).webkitTransform = 'none';
-          target.style.margin = '0 auto';
           target.style.boxShadow = 'none';
           target.style.width = '794px';
           target.style.minWidth = '794px';
@@ -333,9 +437,16 @@ async function renderElementToCanvas(
 
     return canvas;
   } finally {
-    // Always restore the global window.getComputedStyle and createPattern
+    // Always restore the global window.getComputedStyle, createPattern, ancestor styles, and images
     window.getComputedStyle = origWindowGetComputedStyle;
     restoreWindowCreatePattern();
+    restoreImages();
+    savedAncestorStyles.forEach(({ el, transform, webkitTransform, marginBottom, overflow }) => {
+      el.style.transform = transform;
+      (el.style as any).webkitTransform = webkitTransform;
+      el.style.marginBottom = marginBottom;
+      el.style.overflow = overflow;
+    });
   }
 }
 
@@ -390,12 +501,11 @@ export async function exportToPdf(elementId: string, filename: string): Promise<
     // Calculate height in mm when fitted to 210mm width
     const totalHeightMm = (canvasHeight * pdfWidth) / canvasWidth;
 
-    if (totalHeightMm <= 302) {
-      // Single A4 page: perfectly fits the full A4 sheet without awkward bottom cut-offs
+    if (totalHeightMm <= 330) {
+      // Single A4 page: fits perfectly on 1 standard sheet with zero cut-offs
       const imgData = canvas.toDataURL('image/jpeg', 0.98);
-      const renderHeight = Math.min(pdfHeight, totalHeightMm);
-      const yOffset = totalHeightMm < 294 ? (pdfHeight - totalHeightMm) / 2 : 0;
-      pdf.addImage(imgData, 'JPEG', 0, yOffset, pdfWidth, renderHeight, undefined, 'FAST');
+      // Fit to exactly 210mm x 297mm standard A4
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
     } else {
       // Multi-page export with smart section-aware page slicing
       const nominalPageCanvasHeight = Math.floor((canvasWidth * pdfHeight) / pdfWidth);

@@ -318,14 +318,14 @@ export const BiodataSheet: React.FC<BiodataSheetProps> = ({
   const getPhotoShapeClass = () => {
     switch (personal.photoShape) {
       case 'circle':
-        return 'rounded-full';
+        return 'w-28 h-28 aspect-square rounded-full';
       case 'arch':
-        return 'rounded-t-full rounded-b-lg';
+        return 'w-28 h-36 rounded-t-full rounded-b-md';
       case 'rounded':
-        return 'rounded-xl';
+        return 'w-28 h-36 rounded-xl';
       case 'square':
       default:
-        return 'rounded-sm';
+        return 'w-28 h-36 rounded-sm';
     }
   };
 
@@ -614,7 +614,7 @@ export const BiodataSheet: React.FC<BiodataSheetProps> = ({
                 >
                   {privacy.photoPrivacy === 'hidden' ? (
                     <div
-                      className={`w-28 h-36 flex flex-col items-center justify-center p-2 text-center ${getPhotoShapeClass()}`}
+                      className={`flex flex-col items-center justify-center p-2 text-center ${getPhotoShapeClass()}`}
                       style={{ backgroundColor: colors.headerBg, color: colors.mutedText }}
                     >
                       <EyeOff className="w-6 h-6 opacity-40 mb-1" />
@@ -626,7 +626,7 @@ export const BiodataSheet: React.FC<BiodataSheetProps> = ({
                       <img
                         src={personal.photoUrl}
                         alt={personal.fullName}
-                        className={`w-28 h-36 object-cover ${getPhotoShapeClass()} ${privacy.photoPrivacy === 'blurred' ? 'blur-md' : ''}`}
+                        className={`object-cover ${getPhotoShapeClass()} ${privacy.photoPrivacy === 'blurred' ? 'blur-md' : ''}`}
                         crossOrigin="anonymous"
                       />
                       {privacy.photoPrivacy === 'blurred' && (

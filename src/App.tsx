@@ -557,10 +557,11 @@ export default function App() {
           {/* THE PREVIEW CANVAS CONTAINER */}
           <div className="w-full flex justify-center overflow-x-auto p-2 bg-stone-200/50 rounded-2xl border border-stone-300/60 shadow-inner">
             <div
+              id="biodata-sheet-scaler"
               className="origin-top transition-transform duration-150 shadow-2xl rounded-sm"
               style={{
-                transform: `scale(${zoomScale})`,
-                marginBottom: `${(zoomScale - 1) * 1120}px`, // Offset spacing for scale transform
+                transform: isExporting ? 'none' : `scale(${zoomScale})`,
+                marginBottom: isExporting ? '0px' : `${(zoomScale - 1) * 1120}px`, // Offset spacing for scale transform
               }}
             >
               <BiodataSheet
@@ -605,6 +606,21 @@ export default function App() {
         </section>
 
       </main>
+
+      {/* Exporting Loading Overlay */}
+      {isExporting && (
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex flex-col items-center justify-center p-4">
+          <div className="bg-white p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-3 max-w-sm text-center border border-stone-200">
+            <div className="w-8 h-8 border-3 border-amber-600 border-t-transparent rounded-full animate-spin" />
+            <div>
+              <h4 className="font-semibold text-stone-900 text-sm">Preparing Official A4 Biodata</h4>
+              <p className="text-xs text-stone-500 mt-1 leading-relaxed">
+                Rendering full-resolution A4 document, contact QR badge, and ornate borders...
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

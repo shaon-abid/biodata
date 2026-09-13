@@ -56,6 +56,11 @@
     width: 100% !important;
   }
 
+  #biodata-sheet-scaler {
+    transform: none !important;
+    margin: 0 !important;
+  }
+
   .biodata-a4-page {
     box-shadow: none !important;
     border: none !important;
