@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BiodataProfile,
   PrivacySettings,
@@ -10,6 +10,10 @@ import {
   formatIncomeWithPrivacy,
   formatPhoneWithPrivacy,
 } from '../../utils/privacyHelpers';
+import {
+  buildContactVCard,
+  generateQrDataUrl,
+} from '../../utils/qrCodeGenerator';
 import {
   CornerOrnament,
   DividerFiligree,
@@ -81,6 +85,32 @@ export const BiodataSheet: React.FC<BiodataSheetProps> = ({
     privacy.addressPrivacy
   );
   const income = formatIncomeWithPrivacy(educationCareer.annualIncome, privacy.incomePrivacy);
+
+  // QR Code for quick contact sharing & camera scanning
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
+
+  useEffect(() => {
+    if (privacy.includeContactQr !== false) {
+      const vcard = buildContactVCard(personal.fullName, contact, privacy);
+      generateQrDataUrl(vcard, {
+        size: 160,
+        colorDark: '#1c1917',
+        colorLight: '#ffffff',
+      }).then((url) => {
+        setQrDataUrl(url);
+      });
+    } else {
+      setQrDataUrl('');
+    }
+  }, [
+    privacy.includeContactQr,
+    privacy.phonePrivacy,
+    privacy.altPhonePrivacy,
+    privacy.emailPrivacy,
+    privacy.addressPrivacy,
+    contact,
+    personal.fullName,
+  ]);
 
   // Determine template theme classes
   const isDarkTemplate =
@@ -299,6 +329,22 @@ export const BiodataSheet: React.FC<BiodataSheetProps> = ({
     }
   };
 
+  const getFooterText = () => {
+    if (
+      ['islamic-noor', 'dhaka-jamdani', 'chittagong-navy', 'mughal-rose'].includes(template.id) ||
+      ['bismillah', 'crescent', 'mosque'].includes(template.headerSymbol)
+    ) {
+      return 'Barakallahu Feekum • Matrimonial Biodata';
+    }
+    if (
+      ['classic-gold', 'royal-maroon', 'saffron-heritage'].includes(template.id) ||
+      ['om', 'ganesha', 'swastika'].includes(template.headerSymbol)
+    ) {
+      return 'Shubh Vivah • Om Shanti • Matrimonial Biodata';
+    }
+    return 'Matrimonial Biodata • Confidential Family Profile';
+  };
+
   return (
     <div
       id="biodata-print-sheet"
@@ -355,9 +401,13 @@ export const BiodataSheet: React.FC<BiodataSheetProps> = ({
       )}
 
       {/* Content wrapper */}
-      <div className="relative z-10 flex-1 flex flex-col justify-between px-2 pt-1">
+      <div className="relative z-10 flex-1 flex flex-col justify-between px-2 pt-1 pb-1">
         {/* HEADER SECTION */}
-        <div className="text-center mb-2.5">
+        <div
+          className="text-center mb-2 biodata-section"
+          data-biodata-section="true"
+          style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
+        >
           {/* Header religious / auspicious emblem & title */}
           {template.headerSymbol !== 'none' && (
             <div className="flex justify-center mb-1">
@@ -369,14 +419,15 @@ export const BiodataSheet: React.FC<BiodataSheetProps> = ({
             </div>
           )}
           
-          {template.headerTitle && (
-            <h4
-              className={`text-xs tracking-wider font-semibold mb-0.5 ${fontClass}`}
-              style={{ color: colors.accent }}
-            >
-              {template.headerTitle}
-            </h4>
-          )}
+          {template.headerTitle &&
+            !(template.headerSymbol === 'bismillah' && template.headerTitle.includes('بِسْمِ')) && (
+              <h4
+                className={`text-xs tracking-wider font-semibold mb-0.5 ${fontClass}`}
+                style={{ color: colors.accent }}
+              >
+                {template.headerTitle}
+              </h4>
+            )}
 
           {/* Candidate Big Name & Subtitle */}
           <div>
@@ -396,15 +447,19 @@ export const BiodataSheet: React.FC<BiodataSheetProps> = ({
             </p>
           </div>
 
-          <DividerFiligree color={colors.accent} className="my-2 max-w-md mx-auto" />
+          <DividerFiligree color={colors.accent} className="my-1.5 max-w-md mx-auto" />
         </div>
 
         {/* MAIN BODY: BALANCED 2 COLUMNS */}
-        <div className="grid grid-cols-12 gap-5 flex-1 items-start">
+        <div className="grid grid-cols-12 gap-4 flex-1 items-start">
           {/* LEFT COLUMN: PERSONAL DETAILS & OPTIONAL HOROSCOPE */}
-          <div className={template.showPhoto && personal.photoUrl ? 'col-span-7 space-y-2.5' : 'col-span-6 space-y-2.5'}>
+          <div className={template.showPhoto && personal.photoUrl ? 'col-span-7 space-y-2' : 'col-span-6 space-y-2'}>
             {/* SECTION: PERSONAL DETAILS */}
-            <div>
+            <div
+              className="biodata-section"
+              data-biodata-section="true"
+              style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
+            >
               <SectionHeader
                 title="Personal Details"
                 badgeBg={colors.badgeBg}
@@ -484,7 +539,11 @@ export const BiodataSheet: React.FC<BiodataSheetProps> = ({
 
             {/* SECTION: HOROSCOPE (Optional / Privacy-aware) */}
             {horoscope.enabled && privacy.horoscopePrivacy !== 'hidden' && (
-              <div>
+              <div
+                className="mt-2 biodata-section"
+                data-biodata-section="true"
+                style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
+              >
                 <SectionHeader
                   title="Horoscope Details"
                   badgeBg={colors.badgeBg}
@@ -546,33 +605,33 @@ export const BiodataSheet: React.FC<BiodataSheetProps> = ({
 
           {/* RIGHT COLUMN: CANDIDATE PHOTO & EDUCATION & CAREER */}
           {template.showPhoto && personal.photoUrl ? (
-            <div className="col-span-5 flex flex-col justify-between">
+            <div className="col-span-5 space-y-2">
               {/* Photo & Origin Tag */}
-              <div className="flex flex-col items-center mb-2">
+              <div className="flex flex-col items-center mb-1">
                 <div
                   className={`relative overflow-hidden p-1 border-2 shadow-xs ${getPhotoShapeClass()}`}
                   style={{ borderColor: colors.border, backgroundColor: colors.cardBg }}
                 >
                   {privacy.photoPrivacy === 'hidden' ? (
                     <div
-                      className={`w-32 h-40 flex flex-col items-center justify-center p-2 text-center ${getPhotoShapeClass()}`}
+                      className={`w-28 h-36 flex flex-col items-center justify-center p-2 text-center ${getPhotoShapeClass()}`}
                       style={{ backgroundColor: colors.headerBg, color: colors.mutedText }}
                     >
-                      <EyeOff className="w-7 h-7 opacity-40 mb-1.5" />
-                      <span className="text-[10px] font-medium opacity-60">Photo Confidential</span>
-                      <span className="text-[8.5px] opacity-40">Shared on request</span>
+                      <EyeOff className="w-6 h-6 opacity-40 mb-1" />
+                      <span className="text-[9.5px] font-medium opacity-60">Photo Confidential</span>
+                      <span className="text-[8px] opacity-40">Shared on request</span>
                     </div>
                   ) : (
                     <div className="relative">
                       <img
                         src={personal.photoUrl}
                         alt={personal.fullName}
-                        className={`w-32 h-40 object-cover ${getPhotoShapeClass()} ${privacy.photoPrivacy === 'blurred' ? 'blur-md' : ''}`}
+                        className={`w-28 h-36 object-cover ${getPhotoShapeClass()} ${privacy.photoPrivacy === 'blurred' ? 'blur-md' : ''}`}
                         crossOrigin="anonymous"
                       />
                       {privacy.photoPrivacy === 'blurred' && (
                         <div
-                          className="absolute inset-0 flex flex-col items-center justify-center text-[9.5px] font-semibold text-center px-1"
+                          className="absolute inset-0 flex flex-col items-center justify-center text-[9px] font-semibold text-center px-1"
                           style={{ backgroundColor: 'rgba(0,0,0,0.45)', color: '#ffffff' }}
                         >
                           <Shield className="w-3.5 h-3.5 mb-0.5" color="#fcd34d" />
@@ -585,17 +644,21 @@ export const BiodataSheet: React.FC<BiodataSheetProps> = ({
 
                 {family.nativePlace && (
                   <div
-                    className="mt-1.5 px-2 py-0.5 text-[9px] text-center rounded border border-dashed max-w-[150px]"
+                    className="mt-1 px-2 py-0.5 text-[8.5px] text-center rounded border border-dashed max-w-[150px]"
                     style={{ borderColor: colors.accent, color: colors.mutedText }}
                   >
-                    <span className="font-semibold block text-[8.5px]" style={{ color: colors.accent }}>Native Origin</span>
+                    <span className="font-semibold block text-[8px]" style={{ color: colors.accent }}>Native Origin</span>
                     <span className="truncate block">{family.nativePlace}</span>
                   </div>
                 )}
               </div>
 
               {/* Education & Career under photo */}
-              <div>
+              <div
+                className="biodata-section"
+                data-biodata-section="true"
+                style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
+              >
                 <SectionHeader
                   title="Education & Career"
                   badgeBg={colors.badgeBg}
@@ -647,8 +710,12 @@ export const BiodataSheet: React.FC<BiodataSheetProps> = ({
               </div>
             </div>
           ) : (
-            <div className="col-span-6 flex flex-col justify-between">
-              <div>
+            <div className="col-span-6 space-y-2">
+              <div
+                className="biodata-section"
+                data-biodata-section="true"
+                style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
+              >
                 <SectionHeader
                   title="Education & Career"
                   badgeBg={colors.badgeBg}
@@ -713,10 +780,14 @@ export const BiodataSheet: React.FC<BiodataSheetProps> = ({
         </div>
 
         {/* BOTTOM SECTION: FAMILY DETAILS & CONTACT DETAILS IN A BALANCED 2-COLUMN GRID */}
-        <div className="mt-2.5 space-y-2">
-          <div className="grid grid-cols-12 gap-4">
+        <div className="mt-2 space-y-2">
+          <div className="grid grid-cols-12 gap-4 items-start">
             {/* FAMILY DETAILS (col-span-6) */}
-            <div className="col-span-6">
+            <div
+              className="col-span-6 biodata-section"
+              data-biodata-section="true"
+              style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
+            >
               <SectionHeader
                 title="Family Details"
                 badgeBg={colors.badgeBg}
@@ -724,7 +795,7 @@ export const BiodataSheet: React.FC<BiodataSheetProps> = ({
                 accentColor={colors.accent}
               />
 
-              <div className="grid grid-cols-12 text-[10.5px] leading-snug gap-y-1">
+              <div className="grid grid-cols-12 text-[10px] leading-snug gap-y-1">
                 {family.fatherName && (
                   <>
                     <div className="col-span-5 font-medium" style={{ color: colors.mutedText }}>Father's Name</div>
@@ -768,8 +839,12 @@ export const BiodataSheet: React.FC<BiodataSheetProps> = ({
               </div>
             </div>
 
-            {/* CONTACT DETAILS (col-span-6) */}
-            <div className="col-span-6">
+            {/* CONTACT DETAILS (col-span-6) WITH INTEGRATED QR CODE */}
+            <div
+              className="col-span-6 biodata-section"
+              data-biodata-section="true"
+              style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
+            >
               <SectionHeader
                 title="Contact Details"
                 badgeBg={colors.badgeBg}
@@ -780,51 +855,72 @@ export const BiodataSheet: React.FC<BiodataSheetProps> = ({
                 ) : undefined}
               />
 
-              <div className="grid grid-cols-12 text-[10.5px] leading-snug gap-y-1">
-                {contact.contactPerson && (
-                  <>
-                    <div className="col-span-5 font-medium" style={{ color: colors.mutedText }}>Contact Person</div>
-                    <div className="col-span-7 font-semibold">: {contact.contactPerson}</div>
-                  </>
-                )}
-                {!primaryPhone.hidden && primaryPhone.text && (
-                  <>
-                    <div className="col-span-5 font-medium flex items-center gap-1" style={{ color: colors.mutedText }}>
-                      Contact No.
-                      {primaryPhone.isProtected && <Lock className="w-2.5 h-2.5 inline" color={colors.accent} />}
-                    </div>
-                    <div className="col-span-7 font-semibold">
-                      : <span className={primaryPhone.isProtected ? 'tracking-wider font-mono text-[10px]' : ''} style={primaryPhone.isProtected ? { color: colors.accent } : undefined}>{primaryPhone.text}</span>
-                    </div>
-                  </>
-                )}
-                {!altPhone.hidden && altPhone.text && (
-                  <>
-                    <div className="col-span-5 font-medium" style={{ color: colors.mutedText }}>Alt. Phone</div>
-                    <div className="col-span-7 font-semibold">: {altPhone.text}</div>
-                  </>
-                )}
-                {!email.hidden && email.text && (
-                  <>
-                    <div className="col-span-5 font-medium flex items-center gap-1" style={{ color: colors.mutedText }}>
-                      Email ID
-                      {email.isProtected && <Lock className="w-2.5 h-2.5 inline" color={colors.accent} />}
-                    </div>
-                    <div className="col-span-7 truncate">
-                      : <span style={email.isProtected ? { color: colors.accent } : undefined}>{email.text}</span>
-                    </div>
-                  </>
-                )}
-                {!address.hidden && address.text && (
-                  <>
-                    <div className="col-span-5 font-medium flex items-center gap-1" style={{ color: colors.mutedText }}>
-                      Address
-                      {address.isProtected && <Lock className="w-2.5 h-2.5 text-amber-500 inline" />}
-                    </div>
-                    <div className="col-span-7">
-                      : <span className={address.isProtected ? 'italic opacity-90' : ''}>{address.text}</span>
-                    </div>
-                  </>
+              <div className="flex items-start gap-2">
+                <div className="flex-1 grid grid-cols-12 text-[10px] leading-snug gap-y-1">
+                  {contact.contactPerson && (
+                    <>
+                      <div className="col-span-5 font-medium" style={{ color: colors.mutedText }}>Contact Person</div>
+                      <div className="col-span-7 font-semibold">: {contact.contactPerson}</div>
+                    </>
+                  )}
+                  {!primaryPhone.hidden && primaryPhone.text && (
+                    <>
+                      <div className="col-span-5 font-medium flex items-center gap-1" style={{ color: colors.mutedText }}>
+                        Contact No.
+                        {primaryPhone.isProtected && <Lock className="w-2.5 h-2.5 inline" color={colors.accent} />}
+                      </div>
+                      <div className="col-span-7 font-semibold">
+                        : <span className={primaryPhone.isProtected ? 'tracking-wider font-mono text-[9.5px]' : ''} style={primaryPhone.isProtected ? { color: colors.accent } : undefined}>{primaryPhone.text}</span>
+                      </div>
+                    </>
+                  )}
+                  {!altPhone.hidden && altPhone.text && (
+                    <>
+                      <div className="col-span-5 font-medium" style={{ color: colors.mutedText }}>Alt. Phone</div>
+                      <div className="col-span-7 font-semibold">: {altPhone.text}</div>
+                    </>
+                  )}
+                  {!email.hidden && email.text && (
+                    <>
+                      <div className="col-span-5 font-medium flex items-center gap-1" style={{ color: colors.mutedText }}>
+                        Email ID
+                        {email.isProtected && <Lock className="w-2.5 h-2.5 inline" color={colors.accent} />}
+                      </div>
+                      <div className="col-span-7 truncate">
+                        : <span style={email.isProtected ? { color: colors.accent } : undefined}>{email.text}</span>
+                      </div>
+                    </>
+                  )}
+                  {!address.hidden && address.text && (
+                    <>
+                      <div className="col-span-5 font-medium flex items-center gap-1" style={{ color: colors.mutedText }}>
+                        Address
+                        {address.isProtected && <Lock className="w-2.5 h-2.5 text-amber-500 inline" />}
+                      </div>
+                      <div className="col-span-7">
+                        : <span className={address.isProtected ? 'italic opacity-90' : ''}>{address.text}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {privacy.includeContactQr !== false && qrDataUrl && (
+                  <div
+                    className="shrink-0 flex flex-col items-center justify-center p-1 bg-white/95 rounded border shadow-2xs"
+                    style={{ borderColor: colors.border }}
+                  >
+                    <img
+                      src={qrDataUrl}
+                      alt="Contact QR Code"
+                      className="w-13 h-13 object-contain"
+                      crossOrigin="anonymous"
+                    />
+                    <span
+                      className="text-[7.5px] font-bold tracking-tight text-center text-stone-700 mt-0.5"
+                    >
+                      Scan Contact
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
@@ -832,7 +928,11 @@ export const BiodataSheet: React.FC<BiodataSheetProps> = ({
 
           {/* OPTIONAL: BRIEF ABOUT ME & PARTNER EXPECTATIONS (IF AVAILABLE) */}
           {(aboutAndPreferences.aboutCandidate || aboutAndPreferences.partnerExpectations) && (
-            <div className="pt-1.5 text-[10px] border-t border-dashed opacity-85" style={{ borderColor: colors.border }}>
+            <div
+              className="pt-1.5 text-[9.5px] border-t border-dashed opacity-85 biodata-section"
+              data-biodata-section="true"
+              style={{ borderColor: colors.border, pageBreakInside: 'avoid', breakInside: 'avoid' }}
+            >
               {aboutAndPreferences.aboutCandidate && (
                 <p className="line-clamp-2 mb-0.5">
                   <strong style={{ color: colors.accent }}>About:</strong> {aboutAndPreferences.aboutCandidate}
@@ -848,9 +948,13 @@ export const BiodataSheet: React.FC<BiodataSheetProps> = ({
         </div>
 
         {/* BOTTOM ORNATE FOOTER / MOTIF */}
-        <div className="mt-2 text-center text-[9px] opacity-60">
+        <div
+          className="mt-1.5 text-center text-[9px] opacity-65 biodata-section"
+          data-biodata-section="true"
+          style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
+        >
           <div className="h-px w-24 mx-auto mb-1" style={{ backgroundColor: colors.accent }} />
-          <span>Om Shanti • Designed for Holy Matrimony</span>
+          <span>{getFooterText()}</span>
         </div>
       </div>
     </div>

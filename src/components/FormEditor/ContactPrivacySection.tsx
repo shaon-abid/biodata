@@ -29,6 +29,7 @@ import {
   MapPin,
   CheckCircle2,
   Info,
+  QrCode,
 } from 'lucide-react';
 
 interface ContactPrivacySectionProps {
@@ -436,6 +437,100 @@ export const ContactPrivacySection: React.FC<ContactPrivacySectionProps> = ({
               placeholder="e.g. For Matrimonial Purposes Only • Confidential"
               className="w-full px-3 py-1.5 text-xs bg-white border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition"
             />
+          )}
+        </div>
+
+        {/* Contact Details QR Code Feature */}
+        <div className="pt-3 border-t border-stone-200">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-start gap-2">
+              <div className="p-1.5 bg-amber-100 text-amber-800 rounded-lg shrink-0 mt-0.5">
+                <QrCode className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs font-semibold text-stone-800 flex items-center gap-1.5">
+                  Contact QR Code for PDF Export
+                  <span className="text-[10px] font-medium bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-full">
+                    Easy Scan
+                  </span>
+                </span>
+                <p className="text-[11px] text-stone-500">
+                  Embeds a scannable QR badge in the biodata sheet for direct saving or WhatsApp messaging
+                </p>
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-3">
+              <input
+                type="checkbox"
+                checked={privacy.includeContactQr ?? true}
+                onChange={(e) => onPrivacyChange({ includeContactQr: e.target.checked })}
+                className="sr-only peer"
+              />
+              <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+            </label>
+          </div>
+
+          {(privacy.includeContactQr ?? true) && (
+            <div className="mt-3 p-3 bg-amber-50/70 border border-amber-200/80 rounded-lg space-y-2.5">
+              <div>
+                <label className="block text-xs font-medium text-stone-700 mb-1">
+                  QR Code Action Type
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onPrivacyChange({ qrCodeType: 'vcard' })}
+                    className={`px-3 py-2 text-xs rounded-lg border text-left transition ${
+                      (privacy.qrCodeType ?? 'vcard') === 'vcard'
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-2xs font-semibold'
+                        : 'bg-white text-stone-700 border-stone-200 hover:border-amber-300'
+                    }`}
+                  >
+                    <div className="font-semibold text-[11px]">vCard Contact</div>
+                    <div className={`text-[10px] mt-0.5 leading-tight ${(privacy.qrCodeType ?? 'vcard') === 'vcard' ? 'text-amber-100' : 'text-stone-500'}`}>
+                      Saves contact name & numbers directly to phone
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onPrivacyChange({ qrCodeType: 'whatsapp' })}
+                    className={`px-3 py-2 text-xs rounded-lg border text-left transition ${
+                      privacy.qrCodeType === 'whatsapp'
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-2xs font-semibold'
+                        : 'bg-white text-stone-700 border-stone-200 hover:border-amber-300'
+                    }`}
+                  >
+                    <div className="font-semibold text-[11px]">WhatsApp Link</div>
+                    <div className={`text-[10px] mt-0.5 leading-tight ${privacy.qrCodeType === 'whatsapp' ? 'text-amber-100' : 'text-stone-500'}`}>
+                      Opens WhatsApp chat with candidate/guardian
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onPrivacyChange({ qrCodeType: 'text' })}
+                    className={`px-3 py-2 text-xs rounded-lg border text-left transition ${
+                      privacy.qrCodeType === 'text'
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-2xs font-semibold'
+                        : 'bg-white text-stone-700 border-stone-200 hover:border-amber-300'
+                    }`}
+                  >
+                    <div className="font-semibold text-[11px]">Contact Text</div>
+                    <div className={`text-[10px] mt-0.5 leading-tight ${privacy.qrCodeType === 'text' ? 'text-amber-100' : 'text-stone-500'}`}>
+                      Clean plaintext formatted summary
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 text-[11px] text-amber-900 bg-amber-100/60 px-2.5 py-1.5 rounded">
+                <Info className="w-3.5 h-3.5 shrink-0 text-amber-700" />
+                <span>
+                  The QR code automatically respects your privacy presets. If phone numbers are hidden or set to "On Request", placeholder details are maintained.
+                </span>
+              </div>
+            </div>
           )}
         </div>
       </div>

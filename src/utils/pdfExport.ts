@@ -314,6 +314,16 @@ async function renderElementToCanvas(
                   el.style.justifyContent = 'center';
                   el.style.lineHeight = '1.25rem';
                 }
+
+                // Ensure that sections like Family, Education, Contact do not get cut off awkwardly across page breaks
+                if (
+                  el.getAttribute('data-biodata-section') === 'true' ||
+                  el.classList.contains('biodata-section')
+                ) {
+                  el.style.pageBreakInside = 'avoid';
+                  (el.style as any).breakInside = 'avoid';
+                  (el.style as any).webkitColumnBreakInside = 'avoid';
+                }
               }
             }
           });
@@ -349,6 +359,20 @@ export async function exportToPdf(elementId: string, filename: string): Promise<
       })
     );
 
+    // Collect bounding positions of sections to avoid awkward cut-offs across pages
+    const elementRect = element.getBoundingClientRect();
+    const sectionElements = element.querySelectorAll('[data-biodata-section="true"], .biodata-section');
+    const sections: { topRatio: number; bottomRatio: number }[] = [];
+    sectionElements.forEach((sec) => {
+      if (sec instanceof HTMLElement) {
+        const rect = sec.getBoundingClientRect();
+        sections.push({
+          topRatio: (rect.top - elementRect.top) / elementRect.height,
+          bottomRatio: (rect.bottom - elementRect.top) / elementRect.height,
+        });
+      }
+    });
+
     const canvas = await renderElementToCanvas(element, elementId, 2.0);
 
     const pdf = new jsPDF({
@@ -366,35 +390,56 @@ export async function exportToPdf(elementId: string, filename: string): Promise<
     // Calculate height in mm when fitted to 210mm width
     const totalHeightMm = (canvasHeight * pdfWidth) / canvasWidth;
 
-    if (totalHeightMm <= 308) {
-      // Single A4 page: perfectly fits the full A4 sheet
+    if (totalHeightMm <= 302) {
+      // Single A4 page: perfectly fits the full A4 sheet without awkward bottom cut-offs
       const imgData = canvas.toDataURL('image/jpeg', 0.98);
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+      const renderHeight = Math.min(pdfHeight, totalHeightMm);
+      const yOffset = totalHeightMm < 294 ? (pdfHeight - totalHeightMm) / 2 : 0;
+      pdf.addImage(imgData, 'JPEG', 0, yOffset, pdfWidth, renderHeight, undefined, 'FAST');
     } else {
-      // Multi-page export with page slicing
-      const pageCanvasHeight = Math.floor((canvasWidth * pdfHeight) / pdfWidth);
+      // Multi-page export with smart section-aware page slicing
+      const nominalPageCanvasHeight = Math.floor((canvasWidth * pdfHeight) / pdfWidth);
       let yOffset = 0;
       let pageNum = 0;
 
       while (yOffset < canvasHeight) {
-        const sliceHeight = Math.min(pageCanvasHeight, canvasHeight - yOffset);
+        let currentSliceHeight = Math.min(nominalPageCanvasHeight, canvasHeight - yOffset);
+
+        // If not on the final page, check if the cut point slices awkwardly across a section
+        if (yOffset + currentSliceHeight < canvasHeight) {
+          const cutPoint = yOffset + currentSliceHeight;
+          for (const sec of sections) {
+            const secTopPx = sec.topRatio * canvasHeight;
+            const secBottomPx = sec.bottomRatio * canvasHeight;
+            // If the cut point lands right through the middle of this section
+            if (cutPoint > secTopPx + 15 && cutPoint < secBottomPx - 10) {
+              const safeHeight = Math.floor(secTopPx - yOffset);
+              // Only backtrack if the page maintains at least 50% capacity
+              if (safeHeight > nominalPageCanvasHeight * 0.5) {
+                currentSliceHeight = safeHeight;
+              }
+              break;
+            }
+          }
+        }
+
         const pageCanvas = document.createElement('canvas');
         pageCanvas.width = canvasWidth;
-        pageCanvas.height = pageCanvasHeight;
+        pageCanvas.height = nominalPageCanvasHeight;
         const pageCtx = pageCanvas.getContext('2d');
         if (pageCtx) {
           pageCtx.fillStyle = '#ffffff';
-          pageCtx.fillRect(0, 0, canvasWidth, pageCanvasHeight);
+          pageCtx.fillRect(0, 0, canvasWidth, nominalPageCanvasHeight);
           pageCtx.drawImage(
             canvas,
             0,
             yOffset,
             canvasWidth,
-            sliceHeight,
+            currentSliceHeight,
             0,
             0,
             canvasWidth,
-            sliceHeight
+            currentSliceHeight
           );
         }
 
@@ -404,7 +449,7 @@ export async function exportToPdf(elementId: string, filename: string): Promise<
         }
         pdf.addImage(pageImgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
 
-        yOffset += sliceHeight;
+        yOffset += currentSliceHeight;
         pageNum++;
       }
     }

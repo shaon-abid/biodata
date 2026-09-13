@@ -15,6 +15,8 @@ export interface PrivacySettings {
   siblingDetailsPrivacy: 'visible' | 'countOnly' | 'hidden';
   showWatermark: boolean;
   watermarkText: string;
+  includeContactQr?: boolean;
+  qrCodeType?: 'vcard' | 'whatsapp' | 'text';
 }
 
 export interface PersonalDetails {

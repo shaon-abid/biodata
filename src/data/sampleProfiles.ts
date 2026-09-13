@@ -37,7 +37,7 @@ export const SAMPLE_PROFILES: Record<string, { name: string; profile: BiodataPro
         collegeUniversity: 'Bangladesh University of Engineering and Technology (BUET)',
         occupation: 'Senior Software Engineer (Full Stack)',
         organization: 'Optimizely Bangladesh / Tech Global Solutions',
-        annualIncome: '৳ 32,00,000 PA',
+        annualIncome: 'BDT 32,00,000 PA',
         workLocation: 'Gulshan-2, Dhaka (Hybrid)',
         additionalDegrees: 'HSC: Holy Cross College (GPA 5.0) | SSC: Viqarunnisa Noon School & College (GPA 5.0)',
       },
@@ -253,7 +253,7 @@ export const SAMPLE_PROFILES: Record<string, { name: string; profile: BiodataPro
         collegeUniversity: 'Rajshahi University of Engineering & Technology (RUET)',
         occupation: 'Executive Engineer (BCS Public Works Cadre, 36th BCS)',
         organization: 'Public Works Department (PWD), Govt. of Bangladesh',
-        annualIncome: '৳ 16,50,000 PA (Govt. Pay Scale Grade 6 + Govt. Quarter & Vehicle)',
+        annualIncome: 'BDT 16,50,000 PA (Govt. Pay Scale Grade 6 + Govt. Quarter & Vehicle)',
         workLocation: 'Segunbagicha / Ramna, Dhaka',
         additionalDegrees: 'Pursuing M.Sc in Project Management from BUET',
       },
@@ -374,6 +374,8 @@ export const DEFAULT_PRIVACY_SETTINGS: PrivacySettings = {
   siblingDetailsPrivacy: 'visible',
   showWatermark: false,
   watermarkText: 'For Matrimonial Purposes Only • Confidential',
+  includeContactQr: true,
+  qrCodeType: 'vcard',
 };
 
 export const SAFE_SHARE_PRIVACY_SETTINGS: PrivacySettings = {
@@ -387,6 +389,8 @@ export const SAFE_SHARE_PRIVACY_SETTINGS: PrivacySettings = {
   siblingDetailsPrivacy: 'countOnly',
   showWatermark: true,
   watermarkText: 'For Matrimonial Review Only • Confidential',
+  includeContactQr: true,
+  qrCodeType: 'vcard',
 };
 
 export const STRICT_PRIVACY_SETTINGS: PrivacySettings = {
@@ -400,12 +404,14 @@ export const STRICT_PRIVACY_SETTINGS: PrivacySettings = {
   siblingDetailsPrivacy: 'hidden',
   showWatermark: true,
   watermarkText: 'Private & Confidential • Matrimonial Use Only',
+  includeContactQr: false,
+  qrCodeType: 'vcard',
 };
 
 export const DEFAULT_TEMPLATE_CONFIG: TemplateConfig = {
   id: 'islamic-noor',
   headerSymbol: 'bismillah',
-  headerTitle: 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
+  headerTitle: '',
   fontFamily: 'cinzel',
   accentColor: '#e6c86e',
   showPhoto: true,
